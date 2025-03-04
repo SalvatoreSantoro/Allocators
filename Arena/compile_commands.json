@@ -1,0 +1,22 @@
+[
+  {
+    "arguments": [
+      "/usr/bin/gcc",
+      "-DDEBUG",
+      "-Wall",
+      "-Wextra",
+      "-pedantic",
+      "-fno-plt",
+      "-fno-pie",
+      "-g",
+      "-O0",
+      "-c",
+      "-o",
+      "build/main.t.o",
+      "test/main.c"
+    ],
+    "directory": "/home/Salvatore/Progetti/SystemProgramming/Allocators/Arena",
+    "file": "/home/Salvatore/Progetti/SystemProgramming/Allocators/Arena/test/main.c",
+    "output": "/home/Salvatore/Progetti/SystemProgramming/Allocators/Arena/build/main.t.o"
+  }
+]
