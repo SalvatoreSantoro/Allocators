@@ -7,6 +7,7 @@
 typedef struct Arena Arena;
 typedef struct Block Block;
 
+
 #ifdef ARENA_DEBUG
 typedef struct Metadata Metadata;
 
@@ -15,6 +16,7 @@ void arena_memory_dump(Arena* a);
 struct Metadata {
     uintptr_t aloc;
     size_t asize;
+    size_t align;
     Metadata* next;
 };
 
@@ -41,5 +43,8 @@ void arena_destroy(Arena* a);
 
 // size isn't check for performance reason, so be sure to pass a size to allocate smaller than the size used in arena_create
 void* arena_alloc(Arena* a, size_t s);
+
+// crash the program if align isn't a power of 2 (use align.h macros)
+void* arena_alloc_align(Arena* a, size_t s, size_t align);
 
 #endif
