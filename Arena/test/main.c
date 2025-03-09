@@ -26,6 +26,7 @@ int main()
     mock* m2;
     void* m3;
 
+    //changed the allocation logic
     fprintf(stderr, "Should create arena with %ld long blocks: ", size);
     Arena* a = arena_create(size);
     ASSERT((a->blk_data_size == size));

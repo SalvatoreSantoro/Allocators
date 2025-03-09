@@ -10,13 +10,13 @@
 #define DEFAULT_SIZE 1024
 
 #ifdef ARENA_DEBUG
-static void metadata_log(Arena* a, uintptr_t addr, size_t s, size_t align)
+static void metadata_log(Arena* a, uintptr_t addr, size_t s, size_t padd)
 {
     Metadata* md = malloc(sizeof(Metadata));
     assert(md);
     md->aloc = addr;
     md->asize = s;
-    md->align = align;
+    md->apadd = padd;
     md->next = NULL;
     if (a->md_head == NULL) {
         a->md_head = md;
@@ -55,8 +55,14 @@ void arena_memory_dump(Arena* a)
         fprintf(stderr, "%ldB (0x%lx)\t|            HEADER             |\n", header, header);
         fprintf(stderr, "\t\t|_______________________________|\n");
         while (tmp_head != tmp) {
+            j += 1;
+            if (tmp_head->apadd != 0) {
+                fprintf(stderr, "%p\t|\t\t\t\t| \n", (void*)((uintptr_t)tmp_head->aloc - (uintptr_t)tmp_head->apadd));
+                fprintf(stderr, "%ldB (0x%lx)\t|          Padding #%d:\t\t| \n", tmp_head->apadd, tmp_head->apadd, j);
+                fprintf(stderr, "\t\t|_______________________________| \n");
+            }
             fprintf(stderr, "%p\t|\t\t\t\t| \n", (void*)tmp_head->aloc);
-            fprintf(stderr, "%ldB (0x%lx)\t|            Al #%d:\t\t| \n", tmp_head->asize, tmp_head->asize, ++j);
+            fprintf(stderr, "%ldB (0x%lx)\t|            Al #%d:\t\t| \n", tmp_head->asize, tmp_head->asize, j);
             fprintf(stderr, "\t\t|_______________________________| \n");
             last_ptr = tmp_head->aloc + tmp_head->asize;
             tmp_head = tmp_head->next;
@@ -92,22 +98,20 @@ Arena* arena_create(size_t s)
 {
     Arena* a = malloc(sizeof(Arena));
     assert(a);
-    a->blk_data_size = s + (MAX_ALIGN-1); // add MAX_ALIGN-1 so that if allocating exactly s bytes there is always padding space
+    a->blk_data_size = s + (MAX_ALIGN - 1); // add MAX_ALIGN-1 so that if allocating exactly s bytes there is always padding space
     a->head = block_create(s);
     a->tail = a->head;
     return a;
 }
 
-
-//FIX: there is a bug when checking dimension to allocate new block
-//if creating an allocation with size = block size
-//what happens is that if you're adding padding to align memory
-//you will give back to caller a pointer that is in the middle of the allocation, 
-//so effectively allocating less memory than requested
-//if the caller fills up all the memory that requested it will certainly lead to buffer overflow
+// FIX: there is a bug when checking dimension to allocate new block
+// if creating an allocation with size = block size
+// what happens is that if you're adding padding to align memory
+// you will give back to caller a pointer that is in the middle of the allocation,
+// so effectively allocating less memory than requested
+// if the caller fills up all the memory that requested it will certainly lead to buffer overflow
 void* arena_alloc_align(Arena* a, size_t s, size_t align)
 {
-
     uintptr_t curr_addr;
     size_t padding;
     size_t offset;
@@ -118,27 +122,28 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
 
     blk = a->tail;
     curr_addr = (uintptr_t)blk->data + (uintptr_t)blk->filled;
-    padding = calc_align_padding(curr_addr, align);
+    padding = calc_align_padding(curr_addr, align, NORM_PAD);
 
     // create new block, need to recompute padding, curr_addr and block
     if ((blk->filled + s + padding) > a->blk_data_size) {
         Block* new_blk = block_create(a->blk_data_size);
-        padding = calc_align_padding((uintptr_t)new_blk->data, align);
+        padding = calc_align_padding((uintptr_t)new_blk->data, align, NORM_PAD);
         curr_addr = (uintptr_t)new_blk->data;
+        // add the block to list
         blk->next = new_blk;
         a->tail = new_blk;
+
         blk = new_blk;
     }
 
-    printf("%ld\n", padding);
-
+    curr_addr += (uintptr_t)padding;
     offset = padding + s;
-    curr_addr += (uintptr_t)offset;
     blk->filled += offset;
 
 #ifdef ARENA_DEBUG
-    metadata_log(a, curr_addr, s, align);
+    metadata_log(a, curr_addr, s, padding);
 #endif
+    printf("%p\n", (void*)curr_addr);
     return (void*)curr_addr;
 }
 

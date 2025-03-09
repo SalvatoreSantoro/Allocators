@@ -16,7 +16,7 @@ void arena_memory_dump(Arena* a);
 struct Metadata {
     uintptr_t aloc;
     size_t asize;
-    size_t align;
+    size_t apadd;
     Metadata* next;
 };
 
