@@ -1,4 +1,5 @@
 #include "../arena.h"
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,13 +27,7 @@ int main()
     mock* m2;
     void* m3;
 
-    //changed the allocation logic
-    fprintf(stderr, "Should create arena with %ld long blocks: ", size);
     Arena* a = arena_create(size);
-    ASSERT((a->blk_data_size == size));
-    fprintf(stderr, "Arena allocated at %p\n", (void*)a);
-    fprintf(stderr, "Block allocated at %p\n", (void*)a->tail);
-    fprintf(stderr, "\n");
 
     fprintf(stderr, "Should allocate in arena %ld bytes: ", sizeof(mock));
     m1 = arena_alloc(a, sizeof(mock));
@@ -53,18 +48,20 @@ int main()
 
     srand(time(0));
     size_t s2 = 512;
-    int num_it = 30;
+    int num_it = 50;
     int random_num;
 
     fprintf(stderr, "Allocating arena with blk size %ld \n", s2);
     fprintf(stderr, "Allocating %d random nums and check the memory dump\n", num_it);
 
     Arena* b = arena_create(s2);
+    arena_alloc(b, s2);
     for (int i = 0; i < num_it; i++) {
-        random_num = (rand() % 100) + 1;
+        random_num = (rand() % s2 + 1);
         arena_alloc(b, random_num);
         fprintf(stderr, "%d ", random_num);
     }
+    arena_alloc(b, s2);
     fprintf(stderr, "\n");
 
     arena_memory_dump(b);

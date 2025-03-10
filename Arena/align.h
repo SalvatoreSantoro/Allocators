@@ -10,25 +10,15 @@
 #define DOUBLE_ALIGN 2
 #define is_power_of_2(align) !(align & (align - 1))
 
-// Paddings modes
-// if already aligned returns align so that allocations aren't touching, it's useful for debug to check if
-// an alocation is going outside it's space and overwriting the padding
-#define DBG_PAD 0
-#define NORM_PAD 1
 
 // if align is a power of 2, (align-1) is just a mask with all 1.
 // can use it to get the modulo without doing a division
-static inline size_t calc_align_padding(uintptr_t p, size_t align, int mode)
+static inline size_t calc_align_padding(uintptr_t p, size_t align)
 {
     uintptr_t modulo;
-    size_t ret;
     uintptr_t a = (uintptr_t)align;
     modulo = p & (a - 1);
-    if (mode == DBG_PAD)
-        ret = (size_t)(a - modulo);
-    else
-        ret = modulo != 0 ? (size_t)(a - modulo) : modulo;
-    return ret;
+    return modulo != 0 ? (size_t)(a - modulo) : modulo;
 }
 
 #endif // !_ALIGN_H

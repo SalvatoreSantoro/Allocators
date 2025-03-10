@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define DEFAULT_SIZE 1024
 
 #ifdef ARENA_DEBUG
 static void metadata_log(Arena* a, uintptr_t addr, size_t s, size_t padd)
@@ -34,30 +33,38 @@ static void metadata_destroy(Metadata* md)
 
 void arena_memory_dump(Arena* a)
 {
-    size_t header = sizeof(Block);
-    Metadata* tmp = a->md_head;
-    Metadata* tmp_head = a->md_head;
+    size_t header = sizeof(Block), frsp;
+    uintptr_t last_ptr, blk_base, blk_end, padd_addr;
+    int i = 0, j = 0;
+    Metadata *tmp = a->md_head, *tmp_head = a->md_head;
     Block* blk = a->head;
-    int i = 0;
-    uintptr_t last_ptr;
-    while (blk != NULL) {
-        int j = 0;
-        size_t frsp = a->blk_data_size - blk->filled;
-        size_t blk_base = (uintptr_t)blk;
-        size_t blk_end = blk_base + header + a->blk_data_size;
 
+    // loop every block
+    for (; blk != NULL; blk = blk->next) {
+        // compute free space of block
+        frsp = a->blk_data_size - blk->filled;
+
+        // compute base and ending block address
+        blk_base = (uintptr_t)blk;
+        blk_end = blk_base + (uintptr_t)header + (uintptr_t)a->blk_data_size;
+
+        // move tmp pointer to the first metadata element that isn't about current block
         while ((tmp != NULL) && (tmp->aloc > blk_base) && (tmp->aloc < blk_end))
             tmp = tmp->next;
 
+        // print header
         fprintf(stderr, "\t\t_________________________________\n");
         fprintf(stderr, "%p\t|           Block #%d:           |\n", (void*)blk_base, ++i);
         fprintf(stderr, "\t\t|_______________________________|\n");
         fprintf(stderr, "%ldB (0x%lx)\t|            HEADER             |\n", header, header);
         fprintf(stderr, "\t\t|_______________________________|\n");
+
+        // print information about every metadata element of this block
         while (tmp_head != tmp) {
+            padd_addr = (uintptr_t)tmp_head->aloc - (uintptr_t)tmp_head->apadd;
             j += 1;
             if (tmp_head->apadd != 0) {
-                fprintf(stderr, "%p\t|\t\t\t\t| \n", (void*)((uintptr_t)tmp_head->aloc - (uintptr_t)tmp_head->apadd));
+                fprintf(stderr, "%p\t|\t\t\t\t| \n", (void*)padd_addr);
                 fprintf(stderr, "%ldB (0x%lx)\t|          Padding #%d:\t\t| \n", tmp_head->apadd, tmp_head->apadd, j);
                 fprintf(stderr, "\t\t|_______________________________| \n");
             }
@@ -67,13 +74,13 @@ void arena_memory_dump(Arena* a)
             last_ptr = tmp_head->aloc + tmp_head->asize;
             tmp_head = tmp_head->next;
         }
+        // print free space info of block
         if (frsp != 0) {
             fprintf(stderr, "%p\t|\t\t\t\t| \n", (void*)last_ptr);
             fprintf(stderr, "%ldB (0x%lx)\t|          FREE SPACE\t\t| \n", frsp, frsp);
             fprintf(stderr, "\t\t|_______________________________| \n");
             fprintf(stderr, "\n\n");
         }
-        blk = blk->next;
     }
 }
 
@@ -122,17 +129,16 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
 
     blk = a->tail;
     curr_addr = (uintptr_t)blk->data + (uintptr_t)blk->filled;
-    padding = calc_align_padding(curr_addr, align, NORM_PAD);
+    padding = calc_align_padding(curr_addr, align);
 
     // create new block, need to recompute padding, curr_addr and block
     if ((blk->filled + s + padding) > a->blk_data_size) {
         Block* new_blk = block_create(a->blk_data_size);
-        padding = calc_align_padding((uintptr_t)new_blk->data, align, NORM_PAD);
+        padding = calc_align_padding((uintptr_t)new_blk->data, align);
         curr_addr = (uintptr_t)new_blk->data;
         // add the block to list
         blk->next = new_blk;
         a->tail = new_blk;
-
         blk = new_blk;
     }
 
@@ -143,7 +149,6 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
 #ifdef ARENA_DEBUG
     metadata_log(a, curr_addr, s, padding);
 #endif
-    printf("%p\n", (void*)curr_addr);
     return (void*)curr_addr;
 }
 
@@ -152,7 +157,6 @@ void* arena_alloc(Arena* a, size_t s)
     return arena_alloc_align(a, s, DEFAULT_ALIGN);
 }
 
-// TODO destroy metadata
 void arena_destroy(Arena* a)
 {
     Block* temp_blk;
@@ -162,5 +166,15 @@ void arena_destroy(Arena* a)
         block_destroy(temp_blk);
     }
     assert(temp_blk == a->tail);
+
+#ifdef ARENA_DEBUG
+    Metadata* temp_md_blk;
+    while (a->md_head != NULL) {
+        temp_md_blk = a->md_head;
+        a->md_head = a->md_head->next;
+        metadata_destroy(temp_md_blk);
+    }
+    assert(temp_md_blk == a->md_tail);
+#endif
     free(a);
 }
