@@ -7,8 +7,28 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #ifdef ARENA_DEBUG
+
+static void metadata_print(const char* str, void* addr, size_t size, int idx)
+{
+    fprintf(stderr, "%p\t|\t\t\t\t| \n", addr);
+    fprintf(stderr, "%ldB (0x%lx)\t|             %s#%d\t\t|\n", size, size, str, idx);
+    fprintf(stderr, "\t\t|_______________________________| \n");
+}
+
+static void memory_sanitize(uintptr_t curr_pos, size_t apadd, unsigned char padd_char)
+{
+    // iterate backwards from allocation address to check if the expected padding character has been overwritten
+    for (int i = apadd; i >= 0; i--, curr_pos--)
+        assert(*((unsigned char*)curr_pos) == padd_char);
+}
+
+static void memory_guard(uintptr_t curr_pos, size_t apadd, unsigned char padd_char)
+{
+    for (int i = apadd; i >= 0; i--, curr_pos--)
+        *(unsigned char*)curr_pos = padd_char;
+}
+
 static void metadata_log(Arena* a, uintptr_t addr, size_t s, size_t padd)
 {
     Metadata* md = malloc(sizeof(Metadata));
@@ -31,12 +51,12 @@ static void metadata_destroy(Metadata* md)
     free(md);
 }
 
-void arena_memory_dump(Arena* a)
+void arena_memory_dump(const Arena* a)
 {
     size_t header = sizeof(Block), frsp;
     uintptr_t last_ptr, blk_base, blk_end, padd_addr;
     int i = 0, j = 0;
-    Metadata *tmp = a->md_head, *tmp_head = a->md_head;
+    Metadata *tmp_md = a->md_head, *tmp_head = a->md_head;
     Block* blk = a->head;
 
     // loop every block
@@ -49,38 +69,33 @@ void arena_memory_dump(Arena* a)
         blk_end = blk_base + (uintptr_t)header + (uintptr_t)a->blk_data_size;
 
         // move tmp pointer to the first metadata element that isn't about current block
-        while ((tmp != NULL) && (tmp->aloc > blk_base) && (tmp->aloc < blk_end))
-            tmp = tmp->next;
+        while ((tmp_md != NULL) && (tmp_md->aloc > blk_base) && (tmp_md->aloc < blk_end)) {
+            memory_sanitize(tmp_md->aloc, tmp_md->apadd, a->rng_padd_char);
+            tmp_md = tmp_md->next;
+        }
 
         // print header
         fprintf(stderr, "\t\t_________________________________\n");
-        fprintf(stderr, "%p\t|           Block #%d:           |\n", (void*)blk_base, ++i);
+        fprintf(stderr, "%p\t|            Block#%d:\t\t|\n", (void*)blk_base, ++i);
         fprintf(stderr, "\t\t|_______________________________|\n");
-        fprintf(stderr, "%ldB (0x%lx)\t|            HEADER             |\n", header, header);
+        fprintf(stderr, "%ldB (0x%lx)\t|             HEADER            |\n", header, header);
         fprintf(stderr, "\t\t|_______________________________|\n");
 
         // print information about every metadata element of this block
-        while (tmp_head != tmp) {
+        while (tmp_head != tmp_md) {
             padd_addr = (uintptr_t)tmp_head->aloc - (uintptr_t)tmp_head->apadd;
             j += 1;
-            if (tmp_head->apadd != 0) {
-                fprintf(stderr, "%p\t|\t\t\t\t| \n", (void*)padd_addr);
-                fprintf(stderr, "%ldB (0x%lx)\t|          Padding #%d:\t\t| \n", tmp_head->apadd, tmp_head->apadd, j);
-                fprintf(stderr, "\t\t|_______________________________| \n");
-            }
-            fprintf(stderr, "%p\t|\t\t\t\t| \n", (void*)tmp_head->aloc);
-            fprintf(stderr, "%ldB (0x%lx)\t|            Al #%d:\t\t| \n", tmp_head->asize, tmp_head->asize, j);
-            fprintf(stderr, "\t\t|_______________________________| \n");
+            if (tmp_head->apadd != 0)
+                metadata_print("Padd", (void*)padd_addr, tmp_head->apadd, j);
+
+            metadata_print("Al", (void*)tmp_head->aloc, tmp_head->asize, j);
             last_ptr = tmp_head->aloc + tmp_head->asize;
             tmp_head = tmp_head->next;
         }
         // print free space info of block
-        if (frsp != 0) {
-            fprintf(stderr, "%p\t|\t\t\t\t| \n", (void*)last_ptr);
-            fprintf(stderr, "%ldB (0x%lx)\t|          FREE SPACE\t\t| \n", frsp, frsp);
-            fprintf(stderr, "\t\t|_______________________________| \n");
-            fprintf(stderr, "\n\n");
-        }
+        if (frsp != 0)
+            metadata_print("FREE", (void*)last_ptr, frsp, i);
+        fprintf(stderr, "\n\n");
     }
 }
 
@@ -106,8 +121,11 @@ Arena* arena_create(size_t s)
     Arena* a = malloc(sizeof(Arena));
     assert(a);
     a->blk_data_size = s + (MAX_ALIGN - 1); // add MAX_ALIGN-1 so that if allocating exactly s bytes there is always padding space
-    a->head = block_create(s);
+    a->head = block_create(a->blk_data_size);
     a->tail = a->head;
+#if ARENA_DEBUG
+    a->rng_padd_char = rand() % 256;
+#endif
     return a;
 }
 
@@ -148,7 +166,9 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
 
 #ifdef ARENA_DEBUG
     metadata_log(a, curr_addr, s, padding);
+    memory_guard(curr_addr, padding, a->rng_padd_char);
 #endif
+
     return (void*)curr_addr;
 }
 

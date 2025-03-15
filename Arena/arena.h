@@ -3,6 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 typedef struct Arena Arena;
 typedef struct Block Block;
@@ -11,7 +12,8 @@ typedef struct Block Block;
 #ifdef ARENA_DEBUG
 typedef struct Metadata Metadata;
 
-void arena_memory_dump(Arena* a);
+// prints to stderr a dump of arena's memory layout
+void arena_memory_dump(const Arena* a);
 
 struct Metadata {
     uintptr_t aloc;
@@ -32,6 +34,7 @@ struct Arena {
 #ifdef ARENA_DEBUG
     Metadata* md_head;
     Metadata* md_tail;
+    unsigned char rng_padd_char; //random character put in padding space, to check eventual overflows with arena_memory_dump()
 #endif
     Block* head;
     Block* tail;

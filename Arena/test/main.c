@@ -1,3 +1,4 @@
+#include "../align.h"
 #include "../arena.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -13,58 +14,46 @@
             fprintf(stderr, "[FAIL]\n"); \
     } while (0)
 
-typedef struct {
-    char* d;
-    int a;
-    int b;
-    short c;
-} mock;
+#define ALIGNV_SIZE 5
 
-int main()
+int main(void)
 {
-    size_t size = 1024;
-    mock* m1;
-    mock* m2;
-    void* m3;
+    if (__STDC_VERSION__ >= 201710L)
+        printf("We are using C18!\n");
+    else if (__STDC_VERSION__ >= 201112L)
+        printf("We are using C11!\n");
+    else if (__STDC_VERSION__ >= 199001L)
+        printf("We are using C99!\n");
+    else
+        printf("We are using C89/C90!\n");
 
-    Arena* a = arena_create(size);
-
-    fprintf(stderr, "Should allocate in arena %ld bytes: ", sizeof(mock));
-    m1 = arena_alloc(a, sizeof(mock));
-    m2 = arena_alloc(a, sizeof(mock));
-    ASSERT(((uintptr_t)a->tail + sizeof(Block)) == (uintptr_t)m1);
-    m1->a = 0xaa;
-    m1->b = 0xbb;
-    m1->c = 0xcc;
-    m2->a = 0xaa;
-    m2->b = 0xbb;
-    m2->c = 0xcc;
-    fprintf(stderr, "\n");
-
-    fprintf(stderr, "Should allocate in arena %ld bytes: ", size);
-    m3 = arena_alloc(a, size);
-    ASSERT(m3);
-    fprintf(stderr, "\n");
+    size_t s = 512;
+    int *mock, random_align_idx, random_align, random_size, num_it = 10;
+    int alignv[ALIGNV_SIZE] = { DEFAULT_ALIGN, MAX_ALIGN, QUAD_ALIGN, WORD_ALIGN, DOUBLE_ALIGN };
 
     srand(time(0));
-    size_t s2 = 512;
-    int num_it = 50;
-    int random_num;
 
-    fprintf(stderr, "Allocating arena with blk size %ld \n", s2);
+    fprintf(stderr, "Allocating arena with blk size %ld \n", s);
     fprintf(stderr, "Allocating %d random nums and check the memory dump\n", num_it);
 
-    Arena* b = arena_create(s2);
-    arena_alloc(b, s2);
+    Arena* a = arena_create(s);
+    mock = (int*)arena_alloc(a, s);
+    fprintf(stderr, "size: %ld, align: %ld, Testing for correct align: ", s, DEFAULT_ALIGN);
+    ASSERT(((uintptr_t)mock % DEFAULT_ALIGN == 0));
     for (int i = 0; i < num_it; i++) {
-        random_num = (rand() % s2 + 1);
-        arena_alloc(b, random_num);
-        fprintf(stderr, "%d ", random_num);
+        random_size = (rand() % s + 1);
+        random_align_idx = (rand() % ALIGNV_SIZE);
+        random_align = alignv[random_align_idx];
+        mock = (int*)arena_alloc_align(a, random_size, random_align);
+        fprintf(stderr, "size: %d, align: %d, Testing for correct align: ", random_size, random_align);
+        ASSERT(((uintptr_t)mock % random_align == 0));
     }
-    arena_alloc(b, s2);
+    mock = (int*)arena_alloc(a, s);
+    fprintf(stderr, "size: %ld, align: %ld, Testing for correct align: ", s, DEFAULT_ALIGN);
+    ASSERT(((uintptr_t)mock % DEFAULT_ALIGN == 0));
     fprintf(stderr, "\n");
 
-    arena_memory_dump(b);
+    fprintf(stderr, "Memory dump: \n");
+    arena_memory_dump(a);
     arena_destroy(a);
-    arena_destroy(b);
 }

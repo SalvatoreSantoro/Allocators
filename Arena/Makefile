@@ -1,7 +1,7 @@
 # Compiler and Linke
 CC := gcc
-CFLAGS := -DNDEBUG -Wall -Wextra -O2 -pedantic
-TEST_CFLAGS := -DDEBUG -DARENA_DEBUG -Wall -Wextra -pedantic -fno-plt -fno-pie -g -O0
+CFLAGS := -std=c99 -DNDEBUG -Wall -Wextra -O2 -pedantic
+TEST_CFLAGS := -std=c99 -DDEBUG -DARENA_DEBUG -Wall -Wextra -pedantic -fno-plt -fno-pie -g -O0
 TEST_LDFLAGS := -no-pie
 
 # Directories
@@ -31,7 +31,7 @@ $(BUILD_DIR):
 test: $(TEST_OBJS)
 	$(CC) $(TEST_CFLAGS) $(TEST_LDFLAGS) $(TEST_OBJS) -o $(BUILD_DIR)/test_binary
 	@echo "Running tests..."
-	@$(BUILD_DIR)/test_binary
+	setarch $(uname -m) -R $(BUILD_DIR)/test_binary
 
 $(BUILD_DIR)/%.t.o: $(TEST_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(TEST_CFLAGS) -c $< -o $@
