@@ -1,7 +1,7 @@
 # Compiler and Linke
 CC := gcc
-CFLAGS := -std=c99 -DNDEBUG -Wall -Wextra -O2 -pedantic
-TEST_CFLAGS := -std=c99 -DDEBUG -DARENA_DEBUG -Wall -Wextra -pedantic -fno-plt -fno-pie -g -O0
+CFLAGS := -std=c99 -DNDEBUG -Wall -Wextra -Werror -O2 -pedantic
+TEST_CFLAGS := -std=c99 -DDEBUG -DARENA_DEBUG -Wall -Wextra -Werror -pedantic -fno-plt -fno-pie -g -O0
 TEST_LDFLAGS := -no-pie
 
 # Directories

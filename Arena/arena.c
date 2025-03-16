@@ -1,5 +1,6 @@
 #include "arena.h"
 #include "align.h"
+#include "block.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -7,12 +8,21 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef __unix
+#include "unix.h"
+#endif
+
+#ifdef __WIN32
+#include "win.h"
+#endif
+
+
 #ifdef ARENA_DEBUG
 
 static void metadata_print(const char* str, void* addr, size_t size, int idx)
 {
     fprintf(stderr, "%p\t|\t\t\t\t| \n", addr);
-    fprintf(stderr, "%ldB (0x%lx)\t|             %s#%d\t\t|\n", size, size, str, idx);
+    fprintf(stderr, "%zuB (0x%zx)\t|             %s#%d\t\t|\n", size, size, str, idx);
     fprintf(stderr, "\t\t|_______________________________| \n");
 }
 
@@ -78,7 +88,7 @@ void arena_memory_dump(const Arena* a)
         fprintf(stderr, "\t\t_________________________________\n");
         fprintf(stderr, "%p\t|            Block#%d:\t\t|\n", (void*)blk_base, ++i);
         fprintf(stderr, "\t\t|_______________________________|\n");
-        fprintf(stderr, "%ldB (0x%lx)\t|             HEADER            |\n", header, header);
+        fprintf(stderr, "%zuB (0x%zx)\t|             HEADER            |\n", header, header);
         fprintf(stderr, "\t\t|_______________________________|\n");
 
         // print information about every metadata element of this block
@@ -101,28 +111,32 @@ void arena_memory_dump(const Arena* a)
 
 #endif
 
-static Block* block_create(size_t s)
-{
-    Block* b = malloc(sizeof(Block) + s);
-    assert(b);
-    b->filled = 0;
-    b->next = NULL;
-    memset(b->data, 0, s);
-    return b;
-}
-
-static void block_destroy(Block* blk)
-{
-    free(blk);
-}
 
 Arena* arena_create(size_t s)
 {
+    mem_alloc_func mem_alloc;
+    mem_dealloc_func mem_dealloc;
+
     Arena* a = malloc(sizeof(Arena));
     assert(a);
-    a->blk_data_size = s + (MAX_ALIGN - 1); // add MAX_ALIGN-1 so that if allocating exactly s bytes there is always padding space
-    a->head = block_create(a->blk_data_size);
+    // if s == 0 use virtual memory pages to create blocks
+    if (s == 0) {
+        s = vmpage_get_size();
+        mem_alloc = (mem_alloc_func)vmalloc;
+        mem_dealloc = (mem_dealloc_func)vmfree;
+    } else {
+        // add MAX_ALIGN-1 so that if allocating exactly s bytes there is always enough space for padding (memory alignment)
+        s += (MAX_ALIGN - 1);
+        mem_alloc = (mem_alloc_func)malloc;
+        mem_dealloc = (mem_dealloc_func)free;
+    }
+
+    a->blk_data_size = s;
+    a->mem_alloc = mem_alloc;
+    a->mem_dealloc = mem_dealloc; 
+    a->head = block_create(s, mem_alloc);
     a->tail = a->head;
+
 #if ARENA_DEBUG
     a->rng_padd_char = rand() % 256;
 #endif
@@ -151,7 +165,7 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
 
     // create new block, need to recompute padding, curr_addr and block
     if ((blk->filled + s + padding) > a->blk_data_size) {
-        Block* new_blk = block_create(a->blk_data_size);
+        Block* new_blk = block_create(a->blk_data_size, a->mem_alloc);
         padding = calc_align_padding((uintptr_t)new_blk->data, align);
         curr_addr = (uintptr_t)new_blk->data;
         // add the block to list
@@ -183,7 +197,7 @@ void arena_destroy(Arena* a)
     while (a->head != NULL) {
         temp_blk = a->head;
         a->head = a->head->next;
-        block_destroy(temp_blk);
+        block_destroy(temp_blk, a->mem_dealloc);
     }
     assert(temp_blk == a->tail);
 

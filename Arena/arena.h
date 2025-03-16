@@ -5,9 +5,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-typedef struct Arena Arena;
-typedef struct Block Block;
+#include "block.h"
 
+// allocation backend
+#define VM_BACKEND 0
+
+typedef struct Arena Arena;
 
 #ifdef ARENA_DEBUG
 typedef struct Metadata Metadata;
@@ -24,23 +27,20 @@ struct Metadata {
 
 #endif
 
-struct Block {
-    size_t filled;
-    Block* next;
-    unsigned char data[];
-};
-
 struct Arena {
 #ifdef ARENA_DEBUG
     Metadata* md_head;
     Metadata* md_tail;
-    unsigned char rng_padd_char; //random character put in padding space, to check eventual overflows with arena_memory_dump()
+    unsigned char rng_padd_char; // random character put in padding space, to check eventual overflows with arena_memory_dump()
 #endif
     Block* head;
     Block* tail;
     size_t blk_data_size;
+    mem_alloc_func mem_alloc;
+    mem_dealloc_func mem_dealloc;
 };
 
+// by default it will use malloc, if specified as VM_BACKEND it will use virtual memory pages to allocate blocks
 Arena* arena_create(size_t s);
 void arena_destroy(Arena* a);
 
