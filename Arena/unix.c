@@ -1,6 +1,8 @@
 #include "unix.h"
 #include <assert.h>
 #include <stddef.h>
+#include <stdio.h>
+#include <sys/mman.h>
 #include <unistd.h>
 
 size_t vmpage_get_size(void)
@@ -18,9 +20,12 @@ size_t vmpage_get_size(void)
 
 void* vmalloc(size_t s)
 {
-    //TODO
+    void* p = mmap(NULL, s, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    assert(p && "IMPOSSIBLE TO ALLOCATE VM");
+    return p;
 }
 
-void vmfree(void* p){
-    //TODO
+void vfree(void* p)
+{
+    munmap(p, 0);
 }

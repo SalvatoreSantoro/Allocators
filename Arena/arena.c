@@ -16,7 +16,6 @@
 #include "win.h"
 #endif
 
-
 #ifdef ARENA_DEBUG
 
 static void metadata_print(const char* str, void* addr, size_t size, int idx)
@@ -29,14 +28,20 @@ static void metadata_print(const char* str, void* addr, size_t size, int idx)
 static void memory_sanitize(uintptr_t curr_pos, size_t apadd, unsigned char padd_char)
 {
     // iterate backwards from allocation address to check if the expected padding character has been overwritten
-    for (int i = apadd; i >= 0; i--, curr_pos--)
+    while (apadd > 0) {
+        curr_pos -= 1;
+        apadd -= 1;
         assert(*((unsigned char*)curr_pos) == padd_char);
+    };
 }
 
 static void memory_guard(uintptr_t curr_pos, size_t apadd, unsigned char padd_char)
 {
-    for (int i = apadd; i >= 0; i--, curr_pos--)
+    while (apadd > 0) {
+        curr_pos -= 1;
+        apadd -= 1;
         *(unsigned char*)curr_pos = padd_char;
+    };
 }
 
 static void metadata_log(Arena* a, uintptr_t addr, size_t s, size_t padd)
@@ -102,16 +107,25 @@ void arena_memory_dump(const Arena* a)
             last_ptr = tmp_head->aloc + tmp_head->asize;
             tmp_head = tmp_head->next;
         }
-        // print free space info of block
-        if (frsp != 0)
+        // print free space info of block and sanitize the free space, except for the last allocation
+        // that's because if we're adding the character for sanitizing in the free space when allocating new block
+        // then the last allocated block will always have the free space not sanitized
+        if (blk->next != NULL)
+            memory_sanitize(last_ptr + (uintptr_t)frsp, frsp, a->rng_padd_char);
+
+        if (frsp != 0) {
             metadata_print("FREE", (void*)last_ptr, frsp, i);
+        }
         fprintf(stderr, "\n\n");
     }
 }
 
 #endif
 
-
+// FIX:
+// at the moment the virtual memory allocation is bugged, because if i'm using the vmpage size as size for blocks (s variable of Arena), then when i'm really allocating the block in reality the size of it will be sizeof(Block) + s (so it will be > 4096)
+// leading to multiple useless pages allocation for every block
+// also need to check that align isn't causing any issue
 Arena* arena_create(size_t s)
 {
     mem_alloc_func mem_alloc;
@@ -121,9 +135,9 @@ Arena* arena_create(size_t s)
     assert(a);
     // if s == 0 use virtual memory pages to create blocks
     if (s == 0) {
-        s = vmpage_get_size();
+        s = vmpage_get_size() - sizeof(Block);
         mem_alloc = (mem_alloc_func)vmalloc;
-        mem_dealloc = (mem_dealloc_func)vmfree;
+        mem_dealloc = (mem_dealloc_func)vfree;
     } else {
         // add MAX_ALIGN-1 so that if allocating exactly s bytes there is always enough space for padding (memory alignment)
         s += (MAX_ALIGN - 1);
@@ -133,7 +147,7 @@ Arena* arena_create(size_t s)
 
     a->blk_data_size = s;
     a->mem_alloc = mem_alloc;
-    a->mem_dealloc = mem_dealloc; 
+    a->mem_dealloc = mem_dealloc;
     a->head = block_create(s, mem_alloc);
     a->tail = a->head;
 
@@ -165,6 +179,10 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
 
     // create new block, need to recompute padding, curr_addr and block
     if ((blk->filled + s + padding) > a->blk_data_size) {
+#ifdef ARENA_DEBUG
+        size_t frsp = a->blk_data_size - blk->filled;
+        memory_guard(curr_addr + (uintptr_t)frsp, frsp, a->rng_padd_char);
+#endif
         Block* new_blk = block_create(a->blk_data_size, a->mem_alloc);
         padding = calc_align_padding((uintptr_t)new_blk->data, align);
         curr_addr = (uintptr_t)new_blk->data;
