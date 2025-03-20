@@ -5,12 +5,12 @@ A pretty standard Arena allocator with some useful features for debugging memory
 ## Features
 
 The main features are:
--Memory alignment: when allocating memory on the arena it's possible to specify a type of alignment, 
+- Memory alignment: when allocating memory on the arena it's possible to specify a type of alignment, 
 as a default the arena will align the allocations on the actual architecture memory parallelism (sizeof(void*))
--Allocations using virtual pages
--When compiled with the macro "ARENA_DEBUG"
-    -The arena will keep track of all allocations made, in order to reconstruct the memory image and print it out to stderr for debug purposes
-    -The arena will take advantage of the padding bytes added to align correctly the data to store a "guard" character that will be checked to assure that none of the allocations made has exceeded the asigned size, pratically corrupting the arena allocations memory
+- Allocations using virtual pages
+- When compiled with the macro "ARENA_DEBUG"
+    - The arena will keep track of all allocations made, in order to reconstruct the memory image and print it out to stderr for debug purposes
+    - The arena will take advantage of the padding bytes added to align correctly the data to store a "guard" character that will be checked to assure that none of the allocations made has exceeded the asigned size, pratically corrupting the arena allocations memory
 
 ## API
 Check the arena.h file
