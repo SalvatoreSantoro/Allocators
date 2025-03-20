@@ -23,8 +23,6 @@ typedef struct Arena Arena;
 #ifdef ARENA_DEBUG
 typedef struct Metadata Metadata;
 // prints to stderr a dump of arena's memory layout and sanitize the memory
-// the only part of memory that won't sanitize is the remaining free part of the
-// last allocated internal block, this limit is caused by implementation reasons
 void arena_memory_dump(const Arena* a);
 #endif
 

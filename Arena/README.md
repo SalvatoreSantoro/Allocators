@@ -1,6 +1,6 @@
 # Arena Allocator
 
-A pretty standard Arena allocator with some useful feature for debugging memory related bugs.
+A pretty standard Arena allocator with some useful features for debugging memory related bugs.
 
 ## Features
 
@@ -17,8 +17,6 @@ Check the arena.h file
 
 ```c
 // prints to stderr a dump of arena's memory layout and sanitize the memory
-// the only part of memory that won't sanitize is the remaining free part of the
-// last allocated internal block, this limit is caused by implementation reasons
 void arena_memory_dump(const Arena* a);
 
 
@@ -52,7 +50,8 @@ include "arena.h" header in your code and
 # to compile the code (then link your code against ./build/arena.a)
 make 
 
-# to compile the code using debugging features (define "ARENA_DEBUG" macro when compiling your code and link against ./build/arena_debug.a)
+# to compile the code using debugging features (define "ARENA_DEBUG" macro
+# when compiling your code and link against ./build/arena_debug.a)
 make debug
 
 # to run the tests

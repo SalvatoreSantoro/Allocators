@@ -1,6 +1,7 @@
 #include "../arena.h"
 #include "align.h"
 #include "block.h"
+#include "vmem.h"
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -8,13 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef __unix
-#include "unix.h"
-#endif
-
-#ifdef __WIN32
-#include "win.h"
-#endif
 
 struct Arena {
 #ifdef ARENA_DEBUG
@@ -55,14 +49,6 @@ static void memory_sanitize(uintptr_t curr_pos, size_t apadd, unsigned char padd
     };
 }
 
-static void memory_guard(uintptr_t curr_pos, size_t apadd, unsigned char padd_char)
-{
-    while (apadd > 0) {
-        curr_pos -= 1;
-        apadd -= 1;
-        *(unsigned char*)curr_pos = padd_char;
-    };
-}
 
 static void metadata_log(Arena* a, uintptr_t addr, size_t s, size_t padd)
 {
@@ -171,6 +157,7 @@ Arena* arena_create(size_t s)
 
 #if ARENA_DEBUG
     a->rng_padd_char = rand() % 256;
+    memset(a->head->data, a->rng_padd_char, a->blk_data_size );
 #endif
     return a;
 }
@@ -194,10 +181,6 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
 
     // create new block, need to recompute padding, curr_addr and block
     if ((blk->filled + s + padding) > a->blk_data_size) {
-#ifdef ARENA_DEBUG
-        size_t frsp = a->blk_data_size - blk->filled;
-        memory_guard(curr_addr + (uintptr_t)frsp, frsp, a->rng_padd_char);
-#endif
         Block* new_blk = block_create(a->blk_data_size, a->mem_alloc);
         padding = calc_align_padding((uintptr_t)new_blk->data, align);
         curr_addr = (uintptr_t)new_blk->data;
@@ -205,6 +188,9 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
         blk->next = new_blk;
         a->tail = new_blk;
         blk = new_blk;
+#ifdef ARENA_DEBUG
+        memset(a->tail->data, (int)a->rng_padd_char, a->blk_data_size);
+#endif
     }
 
     curr_addr += (uintptr_t)padding;
@@ -213,7 +199,6 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
 
 #ifdef ARENA_DEBUG
     metadata_log(a, curr_addr, s, padding);
-    memory_guard(curr_addr, padding, a->rng_padd_char);
 #endif
 
     return (void*)curr_addr;

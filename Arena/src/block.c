@@ -8,7 +8,6 @@ Block* block_create(size_t s, mem_alloc_func mem_alloc)
     assert(b);
     b->filled = 0;
     b->next = NULL;
-    memset(b->data, 0, s);
     return b;
 }
 
