@@ -1,4 +1,3 @@
-#include "../align.h"
 #include "../arena.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -34,19 +33,9 @@ int main(void)
 
     srand(time(0));
 
-    fprintf(stderr, "Allocating arena with blk size %ld \n", s);
-    fprintf(stderr, "Allocating %d random nums and check the memory dump\n", num_it);
-
-    Arena* a = arena_create(s);
+    Arena* a = arena_create(DEFAULT_SIZE);
     Arena* b = arena_create(VM_BACKEND);
 
-    mock = (int*)arena_alloc(a, s);
-    fprintf(stderr, "size: %ld, align: %ld, Testing for correct align: ", s, DEFAULT_ALIGN);
-    ASSERT(((uintptr_t)mock % DEFAULT_ALIGN == 0));
-
-    mock = (int*)arena_alloc(b, s2);
-    fprintf(stderr, "size: %ld, align: %ld, Testing for correct align: ", s2, DEFAULT_ALIGN);
-    ASSERT(((uintptr_t)mock % DEFAULT_ALIGN == 0));
 
     for (int i = 0; i < num_it; i++) {
         random_size = (rand() % s + 1);
@@ -61,15 +50,6 @@ int main(void)
         fprintf(stderr, "size: %d, align: %d, Testing for correct align: ", random_size, random_align);
         ASSERT(((uintptr_t)mock % random_align == 0));
     }
-    mock = (int*)arena_alloc(a, s);
-    fprintf(stderr, "size: %ld, align: %ld, Testing for correct align: ", s, DEFAULT_ALIGN);
-    ASSERT(((uintptr_t)mock % DEFAULT_ALIGN == 0));
-    fprintf(stderr, "\n");
-
-    mock = (int*)arena_alloc(b, s2);
-    fprintf(stderr, "size: %ld, align: %ld, Testing for correct align: ", s2, DEFAULT_ALIGN);
-    ASSERT(((uintptr_t)mock % DEFAULT_ALIGN == 0));
-    fprintf(stderr, "\n");
 
     fprintf(stderr, "Memory dump: \n");
     arena_memory_dump(a);

@@ -1,4 +1,4 @@
-#include "arena.h"
+#include "../arena.h"
 #include "align.h"
 #include "block.h"
 #include <assert.h>
@@ -16,7 +16,27 @@
 #include "win.h"
 #endif
 
+struct Arena {
 #ifdef ARENA_DEBUG
+    Metadata* md_head;
+    Metadata* md_tail;
+    unsigned char rng_padd_char; // random character put in padding space, to check eventual overflows with arena_memory_dump()
+#endif
+    Block* head;
+    Block* tail;
+    size_t blk_data_size;
+    mem_alloc_func mem_alloc; // allocation function used from blocks
+    mem_dealloc_func mem_dealloc; // deallocation function used from blocks
+};
+
+#ifdef ARENA_DEBUG
+
+struct Metadata {
+    uintptr_t aloc;
+    size_t asize;
+    size_t apadd;
+    Metadata* next;
+};
 
 static void metadata_print(const char* str, void* addr, size_t size, int idx)
 {
@@ -31,7 +51,7 @@ static void memory_sanitize(uintptr_t curr_pos, size_t apadd, unsigned char padd
     while (apadd > 0) {
         curr_pos -= 1;
         apadd -= 1;
-        assert(*((unsigned char*)curr_pos) == padd_char);
+        assert((*((unsigned char*)curr_pos) == padd_char) && "[MEMORY CORRUPTION] - SANITIZATION FAILED");
     };
 }
 
@@ -69,7 +89,7 @@ static void metadata_destroy(Metadata* md)
 void arena_memory_dump(const Arena* a)
 {
     size_t header = sizeof(Block), frsp;
-    uintptr_t last_ptr, blk_base, blk_end, padd_addr;
+    uintptr_t last_ptr = 0, blk_base, blk_end, padd_addr;
     int i = 0, j = 0;
     Metadata *tmp_md = a->md_head, *tmp_head = a->md_head;
     Block* blk = a->head;
@@ -83,18 +103,18 @@ void arena_memory_dump(const Arena* a)
         blk_base = (uintptr_t)blk;
         blk_end = blk_base + (uintptr_t)header + (uintptr_t)a->blk_data_size;
 
-        // move tmp pointer to the first metadata element that isn't about current block
-        while ((tmp_md != NULL) && (tmp_md->aloc > blk_base) && (tmp_md->aloc < blk_end)) {
-            memory_sanitize(tmp_md->aloc, tmp_md->apadd, a->rng_padd_char);
-            tmp_md = tmp_md->next;
-        }
-
         // print header
         fprintf(stderr, "\t\t_________________________________\n");
         fprintf(stderr, "%p\t|            Block#%d:\t\t|\n", (void*)blk_base, ++i);
         fprintf(stderr, "\t\t|_______________________________|\n");
         fprintf(stderr, "%zuB (0x%zx)\t|             HEADER            |\n", header, header);
         fprintf(stderr, "\t\t|_______________________________|\n");
+
+        // move tmp pointer to the first metadata element that isn't about current block
+        while ((tmp_md != NULL) && (tmp_md->aloc > blk_base) && (tmp_md->aloc < blk_end)) {
+            memory_sanitize(tmp_md->aloc, tmp_md->apadd, a->rng_padd_char);
+            tmp_md = tmp_md->next;
+        }
 
         // print information about every metadata element of this block
         while (tmp_head != tmp_md) {
@@ -107,14 +127,14 @@ void arena_memory_dump(const Arena* a)
             last_ptr = tmp_head->aloc + tmp_head->asize;
             tmp_head = tmp_head->next;
         }
-        // print free space info of block and sanitize the free space, except for the last allocation
-        // that's because if we're adding the character for sanitizing in the free space when allocating new block
-        // then the last allocated block will always have the free space not sanitized
-        if (blk->next != NULL)
-            memory_sanitize(last_ptr + (uintptr_t)frsp, frsp, a->rng_padd_char);
 
-        if (frsp != 0) {
+        if ((frsp != 0) && (last_ptr != 0)) {
             metadata_print("FREE", (void*)last_ptr, frsp, i);
+            // print free space info of block and sanitize the free space, except for the last allocation
+            // that's because if we're adding the character for sanitizing in the free space when allocating new block
+            // then the last allocated block will always have the free space not guarded
+            if (blk->next != NULL)
+                memory_sanitize(last_ptr + (uintptr_t)frsp, frsp, a->rng_padd_char);
         }
         fprintf(stderr, "\n\n");
     }
@@ -122,10 +142,6 @@ void arena_memory_dump(const Arena* a)
 
 #endif
 
-// FIX:
-// at the moment the virtual memory allocation is bugged, because if i'm using the vmpage size as size for blocks (s variable of Arena), then when i'm really allocating the block in reality the size of it will be sizeof(Block) + s (so it will be > 4096)
-// leading to multiple useless pages allocation for every block
-// also need to check that align isn't causing any issue
 Arena* arena_create(size_t s)
 {
     mem_alloc_func mem_alloc;
@@ -135,12 +151,14 @@ Arena* arena_create(size_t s)
     assert(a);
     // if s == 0 use virtual memory pages to create blocks
     if (s == 0) {
+        // to make sure that all the block fits in a page we subtract the size of the block header from the page size
+        // to get data size
         s = vmpage_get_size() - sizeof(Block);
         mem_alloc = (mem_alloc_func)vmalloc;
         mem_dealloc = (mem_dealloc_func)vfree;
     } else {
         // add MAX_ALIGN-1 so that if allocating exactly s bytes there is always enough space for padding (memory alignment)
-        s += (MAX_ALIGN - 1);
+        // s += (MAX_ALIGN - 1);
         mem_alloc = (mem_alloc_func)malloc;
         mem_dealloc = (mem_dealloc_func)free;
     }
@@ -157,12 +175,8 @@ Arena* arena_create(size_t s)
     return a;
 }
 
-// FIX: there is a bug when checking dimension to allocate new block
-// if creating an allocation with size = block size
-// what happens is that if you're adding padding to align memory
-// you will give back to caller a pointer that is in the middle of the allocation,
-// so effectively allocating less memory than requested
-// if the caller fills up all the memory that requested it will certainly lead to buffer overflow
+// This function is assuming that s+padding calculated from the align requested is smaller then the
+// allocation blk_size
 void* arena_alloc_align(Arena* a, size_t s, size_t align)
 {
     uintptr_t curr_addr;
@@ -170,12 +184,13 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
     size_t offset;
     Block* blk;
 
-    assert(s <= a->blk_data_size);
     assert(is_power_of_2(align));
 
     blk = a->tail;
     curr_addr = (uintptr_t)blk->data + (uintptr_t)blk->filled;
     padding = calc_align_padding(curr_addr, align);
+
+    assert((s + padding) <= a->blk_data_size);
 
     // create new block, need to recompute padding, curr_addr and block
     if ((blk->filled + s + padding) > a->blk_data_size) {

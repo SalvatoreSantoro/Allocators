@@ -3,11 +3,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
-#define DEFAULT_ALIGN sizeof(void*)
-#define MAX_ALIGN __alignof__(long double)
-#define QUAD_ALIGN __alignof__(long long)
-#define WORD_ALIGN __alignof__(int)
-#define DOUBLE_ALIGN __alignof__(short)
+
 #define is_power_of_2(align) !(align & (align - 1))
 
 // Paddings modes

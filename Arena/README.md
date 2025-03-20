@@ -1,32 +1,26 @@
-#ifndef _ARENA_H
-#define _ARENA_H
+# Arena Allocator
 
-#include <stddef.h>
-#include <stdint.h>
-#include <stdlib.h>
+A pretty standard Arena allocator with some useful feature for debugging memory related bugs.
 
-// alignment macros
-#define DEFAULT_ALIGN sizeof(void*)
-#define MAX_ALIGN __alignof__(long double)
-#define QUAD_ALIGN __alignof__(long long)
-#define WORD_ALIGN __alignof__(int)
-#define DOUBLE_ALIGN __alignof__(short)
+## Features
 
-// allocation backend
-#define VM_BACKEND 0
+The main features are:
+-Memory alignment: when allocating memory on the arena it's possible to specify a type of alignment, 
+as a default the arena will align the allocations on the actual architecture memory parallelism (sizeof(void*))
+-Allocations using virtual pages
+-When compiled with the macro "ARENA_DEBUG"
+    -The arena will keep track of all allocations made, in order to reconstruct the memory image and print it out to stderr for debug purposes
+    -The arena will take advantage of the padding bytes added to align correctly the data to store a "guard" character that will be checked to assure that none of the allocations made has exceeded the asigned size, pratically corrupting the arena allocations memory
 
-#define ARENA_SMALL 1024
-#define ARENA_BIG 4096
+## API
+Check the arena.h file
 
-typedef struct Arena Arena;
-
-#ifdef ARENA_DEBUG
-typedef struct Metadata Metadata;
+```c
 // prints to stderr a dump of arena's memory layout and sanitize the memory
 // the only part of memory that won't sanitize is the remaining free part of the
 // last allocated internal block, this limit is caused by implementation reasons
 void arena_memory_dump(const Arena* a);
-#endif
+
 
 // by default it will use malloc, if specified size as VM_BACKEND
 // it will use virtual memory pages to allocate blocks
@@ -50,4 +44,18 @@ void* arena_alloc(Arena* a, size_t s);
 //crash the program if align isn't a power of 2 (use macros)
 void* arena_alloc_align(Arena* a, size_t s, size_t align);
 
-#endif
+```
+
+## Installation
+include "arena.h" header in your code and
+```sh
+# to compile the code (then link your code against ./build/arena.a)
+make 
+
+# to compile the code using debugging features (define "ARENA_DEBUG" macro when compiling your code and link against ./build/arena_debug.a)
+make debug
+
+# to run the tests
+make test
+```
+

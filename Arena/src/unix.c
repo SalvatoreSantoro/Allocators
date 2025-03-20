@@ -5,6 +5,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+int pagesize=0;
+
 size_t vmpage_get_size(void)
 {
     long size;
