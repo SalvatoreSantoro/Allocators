@@ -34,7 +34,7 @@ Arena* arena_create(size_t s);
 void arena_destroy(Arena* a);
 
 // When allocating an object that won't fit in remaining free space, 
-// the arena will automatically create a new block of size "s" to accomodate the request
+// the arena will automatically create a new block of size "s"(the one specified during creation) to accomodate the request
 // but won't check that the requested allocation can actually fit in the real space assigned for allocations
 // at the time of the creation of the arena.
 // So the general raccomandation is to create the arena using a pretty big size compared to
