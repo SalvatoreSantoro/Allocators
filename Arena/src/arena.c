@@ -116,11 +116,7 @@ void arena_memory_dump(const Arena* a)
 
         if ((frsp != 0) && (last_ptr != 0)) {
             metadata_print("FREE", (void*)last_ptr, frsp, i);
-            // print free space info of block and sanitize the free space, except for the last allocation
-            // that's because if we're adding the character for sanitizing in the free space when allocating new block
-            // then the last allocated block will always have the free space not guarded
-            if (blk->next != NULL)
-                memory_sanitize(last_ptr + (uintptr_t)frsp, frsp, a->rng_padd_char);
+            memory_sanitize(last_ptr + (uintptr_t)frsp, frsp, a->rng_padd_char);
         }
         fprintf(stderr, "\n\n");
     }
@@ -173,11 +169,14 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
 
     assert(is_power_of_2(align));
 
+
     blk = a->tail;
     curr_addr = (uintptr_t)blk->data + (uintptr_t)blk->filled;
     padding = calc_align_padding(curr_addr, align);
 
     assert((s + padding) <= a->blk_data_size);
+
+
 
     // create new block, need to recompute padding, curr_addr and block
     if ((blk->filled + s + padding) > a->blk_data_size) {
@@ -192,6 +191,7 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
         memset(a->tail->data, (int)a->rng_padd_char, a->blk_data_size);
 #endif
     }
+
 
     curr_addr += (uintptr_t)padding;
     offset = padding + s;

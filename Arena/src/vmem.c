@@ -2,17 +2,26 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <sys/mman.h>
-#include <unistd.h>
+
+#ifdef __unix
+    #include <sys/mman.h>
+    #include <unistd.h>
+#endif
+
+#ifdef __WIN32
+    #include <sysinfoapi.h>
+    #include <memoryapi.h>
+#endif
 
 long pagesize = 0;
 
 size_t vmpage_get_size(void)
 {
-    if (pagesize != 0)
-        return pagesize;
 
     long size;
+    
+    if (pagesize != 0)
+        return pagesize;
 
 #ifdef __unix
     size = sysconf(_SC_PAGESIZE);
@@ -54,6 +63,6 @@ void vfree(void* p)
 #endif
 
 #ifdef __WIN32
-    VirtualFree(p, pagesize, MEM_RELEASE)
+    VirtualFree(p, pagesize, MEM_RELEASE);
 #endif
 }

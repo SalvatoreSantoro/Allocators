@@ -46,7 +46,7 @@ $(BUILD_DIR)/%.d.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 
 ### CREATE BUILD DIRECTORY IF NOT EXISTS
 $(BUILD_DIR):
-	@mkdir -p $(BUILD_DIR)
+	@"mkdir" $(BUILD_DIR)
 
 ### TEST TARGET
 test: $(TEST_OBJS)

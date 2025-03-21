@@ -29,15 +29,21 @@ int main(void)
     size_t s = 2048;
     int *mock, random_align_idx, random_align, random_size, num_it = 10;
     int alignv[ALIGNV_SIZE] = { DEFAULT_ALIGN, MAX_ALIGN, QUAD_ALIGN, WORD_ALIGN, DOUBLE_ALIGN };
-
+    
+    //seems to create problems on Windows
     srand(time(0));
 
     Arena* a = arena_create(ARENA_BIG);
 
     mock = (int*)arena_alloc(a, sizeof(int));
+    *mock = 0;
 
     Arena* b = arena_create(VM_BACKEND);
 
+    mock = (int*)arena_alloc(b, sizeof(int));
+    *mock = 0;
+
+    
     fprintf(stderr, "\n");
     fprintf(stderr, "Allocating on HEAP: \n\n");
 
@@ -70,4 +76,6 @@ int main(void)
 
     arena_destroy(a);
     arena_destroy(b);
+
+    return 0;
 }
