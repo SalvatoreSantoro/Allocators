@@ -5,12 +5,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-// alignment macros
-#define DEFAULT_ALIGN sizeof(void*)
-#define MAX_ALIGN __alignof__(long double)
-#define QUAD_ALIGN __alignof__(long long)
-#define WORD_ALIGN __alignof__(int)
-#define DOUBLE_ALIGN __alignof__(short)
+#include "../common/macros.h"
 
 // allocation backend
 #define VM_BACKEND 0
@@ -26,6 +21,7 @@ typedef struct Metadata Metadata;
 void arena_memory_dump(const Arena* a);
 #endif
 
+// RETURN NULL WHEN OUT OF MEMORY
 // by default it will use malloc, if specified size as VM_BACKEND
 // it will use virtual memory pages to allocate blocks
 Arena* arena_create(size_t s);
@@ -33,6 +29,7 @@ Arena* arena_create(size_t s);
 // just a destructor
 void arena_destroy(Arena* a);
 
+// RETURN NULL WHEN OUT OF MEMORY
 // When allocating an object that won't fit in remaining free space, 
 // the arena will automatically create a new block of size "s"(the one specified during creation) to accomodate the request
 // but won't check that the requested allocation can actually fit in the real space assigned for allocations
