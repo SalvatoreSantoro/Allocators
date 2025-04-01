@@ -1,6 +1,6 @@
 ### COMPILER AND LINKER
 CC := gcc
-CFLAGS := -std=c99 -DNDDEBUG -Wall -Wextra -Werror -O2 -pedantic
+CFLAGS := -std=c99 -DNDDEBUG -Wall -Wextra -Werror -O2 -pedantic -Wpadded
 
 CFLAGS_DEBUG := -std=c99 -DDEBUG -DPOOL_DEBUG -Wall -Wextra -Werror -pedantic -O0 -g
 
