@@ -30,6 +30,10 @@ struct PoolAlc {
     size_t align;
     uint32_t chunk_num;
     uint32_t blks_num;
+    // minimum number of free chunk to place a block in the head, in order to try
+    // to favour allocation on almost full blocks, to avoid keeping unused memory
+    // (trying to create few blocks completely used instead of a lot of blocks almost full)
+    uint32_t min_free_chunks;
 };
 
 void* pool_alc_alloc(PoolAlc* pa)
@@ -39,6 +43,7 @@ void* pool_alc_alloc(PoolAlc* pa)
     unsigned char* curr_pos = NULL;
     unsigned char* prev_pos = NULL;
     unsigned char* free_chunk;
+    unsigned char* free_chunk_next;
     if ((pa->head == NULL) || (pa->chunk_num == pa->head->filled)) {
         // allocate considering the eventual padding caused by the align
         blk = malloc(sizeof(Block) + pa->align + pa->blk_data_size);
@@ -62,10 +67,11 @@ void* pool_alc_alloc(PoolAlc* pa)
     }
 
     free_chunk = pa->head->free_chunk;
+    free_chunk_next = free_chunk + pa->obj_size;
     // change next free chunk
-    STORE_PTR(pa->head->free_chunk, free_chunk+pa->obj_size);
+    STORE_PTR(&pa->head->free_chunk, free_chunk_next);
     // take next free obj and replace next pointer with pointer to the block it belongs
-    STORE_PTR(free_chunk+pa->obj_size, &blk);
+    STORE_PTR(free_chunk_next, &blk);
     pa->head->filled += 1;
 
     // blk is full put it in the tail
@@ -76,13 +82,34 @@ void* pool_alc_alloc(PoolAlc* pa)
         pa->tail->next = NULL;
     }
 
-    printf("%p, %p, %p\n", (void*)free_chunk, (void*)pa->head->free_chunk, (void*)(free_chunk+pa->obj_size));
+    // printf("%p, %p, %p\n", (void*)free_chunk, (void*)pa->head->free_chunk, (void*)(free_chunk+pa->obj_size));
     return free_chunk;
 }
 
-/* void pool_alc_free(PoolAlc* pa, void* p) */
-/* { */
-/* } */
+void pool_alc_free(PoolAlc* pa, void* p)
+{
+    Block* blk;
+    unsigned char* chunk = p;
+    unsigned char* chunk_ptr = chunk + pa->obj_size;
+
+    // get block associated to chunk
+    STORE_PTR(&blk, chunk_ptr);
+    // free the chunk
+    STORE_PTR(&blk->free_chunk, &chunk);
+    STORE_PTR(chunk_ptr, &blk->free_chunk);
+    blk->filled -= 1;
+
+    if(blk != pa->head){
+        if(blk->filled == 0){
+            //FREE
+            //need double pointers list
+        }
+
+        if(blk->filled == pa->min_free_chunks){
+            //swap to head
+        }
+    }
+}
 
 PoolAlc* pool_alc_create_align(size_t obj_size, size_t obj_num, size_t align)
 {
@@ -113,6 +140,7 @@ PoolAlc* pool_alc_create_align(size_t obj_size, size_t obj_num, size_t align)
     chunk_size += chunk_padd;
 
     pa->chunk_num = obj_num;
+    pa->min_free_chunks = obj_num / MIN_FREE_CHUNKS_FRACTION;
     pa->obj_size = obj_size;
     pa->chunk_size = chunk_size;
     pa->align = align;
