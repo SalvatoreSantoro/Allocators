@@ -22,4 +22,6 @@ PoolAlc* pool_alc_create_align(size_t obj_size, size_t obj_num, size_t align);
 
 void* pool_alc_alloc(PoolAlc* pa);
 
+void pool_alc_free(PoolAlc* pa, void* p);
+
 #endif // !_POOL_H
