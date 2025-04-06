@@ -1,17 +1,10 @@
+#include "../../common/test_assert.h"
 #include "../arena.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-
-#define ASSERT(a)                        \
-    do {                                 \
-        if (a)                           \
-            fprintf(stderr, "[PASS]\n"); \
-        else                             \
-            fprintf(stderr, "[FAIL]\n"); \
-    } while (0)
 
 #define ALIGNV_SIZE 5
 
@@ -29,21 +22,24 @@ int main(void)
     size_t s = 2048;
     int *mock, random_align_idx, random_align, random_size, num_it = 10;
     int alignv[ALIGNV_SIZE] = { DEFAULT_ALIGN, MAX_ALIGN, QUAD_ALIGN, WORD_ALIGN, DOUBLE_ALIGN };
-    
-    //seems to create problems on Windows
+
+    // seems to create problems on Windows
     srand(time(0));
 
     Arena* a = arena_create(ARENA_BIG);
+    if (a == NULL)
+        exit(0);
 
     mock = (int*)arena_alloc(a, sizeof(int));
     *mock = 0;
 
     Arena* b = arena_create(VM_BACKEND);
+    if (b == NULL)
+        exit(0);
 
     mock = (int*)arena_alloc(b, sizeof(int));
     *mock = 0;
 
-    
     fprintf(stderr, "\n");
     fprintf(stderr, "Allocating on HEAP: \n\n");
 

@@ -39,14 +39,14 @@ struct PoolAlc {
 
 void* pool_alc_alloc(PoolAlc* pa)
 {
-    Block* blk;
+    Block* blk = pa->head;
     size_t start_padd;
     unsigned char* curr_pos = NULL;
     unsigned char* prev_pos = NULL;
     unsigned char* free_chunk;
     unsigned char* free_chunk_next;
 
-    if ((pa->head == NULL) || (pa->chunk_num == pa->head->filled)) {
+    if ((blk == NULL) || (pa->chunk_num == pa->head->filled)) {
         // allocate considering the eventual padding caused by the align
         blk = malloc(sizeof(Block) + pa->align + pa->blk_data_size);
         if (blk == NULL)
@@ -74,6 +74,7 @@ void* pool_alc_alloc(PoolAlc* pa)
         pa->head = blk;
     }
 
+
     free_chunk = pa->head->free_chunk;
     free_chunk_next = free_chunk + pa->obj_size;
     // change next free chunk
@@ -94,6 +95,7 @@ void* pool_alc_alloc(PoolAlc* pa)
         pa->head->prev = NULL;
     }
 
+
     // printf("%p, %p, %p\n", (void*)free_chunk, (void*)pa->head->free_chunk, (void*)(free_chunk+pa->obj_size));
     return free_chunk;
 }
@@ -109,6 +111,7 @@ void pool_alc_free(PoolAlc* pa, void* p)
     // free the chunk
     STORE_PTR(chunk_ptr, &blk->free_chunk);
     STORE_PTR(&blk->free_chunk, &chunk);
+
     blk->filled -= 1;
 
     if ((blk == pa->head) || ((blk->filled != 0) && (blk->filled != pa->max_filled_head)))
@@ -154,6 +157,9 @@ PoolAlc* pool_alc_create_align(size_t obj_size, size_t obj_num, size_t align)
     // compute the padding to add to the obj to align addresses
     obj_padd = calc_align_padding(obj_size, PTR_ALIGN);
     obj_size += obj_padd;
+    
+
+    //printf("OBJ PADDING: %ld\n", obj_padd);
 
     // chunks is (obj+addr)
     // add size of pointer for linking free objects or to reference block on which the object is allocated
@@ -161,6 +167,8 @@ PoolAlc* pool_alc_create_align(size_t obj_size, size_t obj_num, size_t align)
     chunk_size = obj_size + sizeof(void*);
     chunk_padd = calc_align_padding(chunk_size, align);
     chunk_size += chunk_padd;
+
+    //printf("CHUNK PADDING: %ld\n", chunk_padd);
 
     pa->chunk_num = obj_num;
     pa->max_filled_head = obj_num - ((obj_num / MIN_FREE_CHUNKS_FRACTION) + 1);
@@ -174,4 +182,15 @@ PoolAlc* pool_alc_create_align(size_t obj_size, size_t obj_num, size_t align)
 PoolAlc* pool_alc_create(size_t obj_size, size_t obj_num)
 {
     return pool_alc_create_align(obj_size, obj_num, DEFAULT_ALIGN);
+}
+
+void pool_alc_destroy(PoolAlc* pa)
+{
+    Block* temp;
+    while (pa->head != NULL) {
+        temp = pa->head;
+        pa->head = pa->head->next;
+        free(temp);
+    }
+    free(pa);
 }

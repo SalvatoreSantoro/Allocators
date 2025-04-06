@@ -48,13 +48,13 @@ static void metadata_print(const char* str, void* addr, size_t size, int idx)
     fprintf(stderr, "\t\t|_______________________________| \n");
 }
 
-static void memory_sanitize(uintptr_t curr_pos, size_t apadd, unsigned char padd_char)
+static void memory_sanitize(unsigned char* curr_pos, size_t apadd, unsigned char padd_char)
 {
     // iterate backwards from allocation address to check if the expected padding character has been overwritten
     while (apadd > 0) {
         curr_pos -= 1;
         apadd -= 1;
-        assert((*((unsigned char*)curr_pos) == padd_char) && "[MEMORY CORRUPTION] - SANITIZATION FAILED");
+        assert((*(curr_pos) == padd_char) && "[MEMORY CORRUPTION] - SANITIZATION FAILED");
     };
 }
 
@@ -66,10 +66,12 @@ static void metadata_log(Arena* a, uintptr_t addr, size_t s, size_t padd)
     md->asize = s;
     md->apadd = padd;
     md->next = NULL;
-    if (a->md_head == NULL) {
+    if ((a->md_head == NULL) || (a->md_tail == NULL)) {
         a->md_head = md;
         a->md_tail = a->md_head;
     } else {
+        if (a->md_tail == NULL)
+            return;
         a->md_tail->next = md;
         a->md_tail = a->md_tail->next;
     }
@@ -95,7 +97,7 @@ void arena_memory_dump(const Arena* a)
 
         // compute base and ending block address
         blk_base = (uintptr_t)blk;
-        blk_end = blk_base + (uintptr_t)header + (uintptr_t)a->blk_data_size;
+        blk_end = blk_base + header + a->blk_data_size;
 
         // print header
         fprintf(stderr, "\t\t_________________________________\n");
@@ -106,13 +108,13 @@ void arena_memory_dump(const Arena* a)
 
         // move tmp pointer to the first metadata element that isn't about current block
         while ((tmp_md != NULL) && (tmp_md->aloc > blk_base) && (tmp_md->aloc < blk_end)) {
-            memory_sanitize(tmp_md->aloc, tmp_md->apadd, a->rng_padd_char);
+            memory_sanitize((unsigned char*)tmp_md->aloc, tmp_md->apadd, a->rng_padd_char);
             tmp_md = tmp_md->next;
         }
 
         // print information about every metadata element of this block
         while (tmp_head != tmp_md) {
-            padd_addr = (uintptr_t)tmp_head->aloc - (uintptr_t)tmp_head->apadd;
+            padd_addr = tmp_head->aloc - tmp_head->apadd;
             j += 1;
             if (tmp_head->apadd != 0)
                 metadata_print("Padd", (void*)padd_addr, tmp_head->apadd, j);
@@ -124,7 +126,7 @@ void arena_memory_dump(const Arena* a)
 
         if ((frsp != 0) && (last_ptr != 0)) {
             metadata_print("FREE", (void*)last_ptr, frsp, i);
-            memory_sanitize(last_ptr + (uintptr_t)frsp, frsp, a->rng_padd_char);
+            memory_sanitize((unsigned char*)last_ptr + frsp, frsp, a->rng_padd_char);
         }
         fprintf(stderr, "\n\n");
     }
@@ -136,6 +138,7 @@ Arena* arena_create(size_t s)
 {
     mem_alloc_func mem_alloc;
     mem_dealloc_func mem_dealloc;
+    size_t blk_size;
     Block* blk;
 
     // if s == 0 use virtual memory pages to create blocks
@@ -149,9 +152,12 @@ Arena* arena_create(size_t s)
         mem_alloc = (mem_alloc_func)malloc;
         mem_dealloc = (mem_dealloc_func)free;
     }
-    blk = mem_alloc(sizeof(Block) + s);
+    blk_size = sizeof(Block) + s;
+    blk = mem_alloc(blk_size);
     if (blk == NULL)
         return NULL;
+
+    memset(blk, 0, blk_size);
 
     Arena* a = malloc(sizeof(Arena));
     if (a == NULL)
@@ -164,6 +170,8 @@ Arena* arena_create(size_t s)
     a->tail = a->head;
 
 #if ARENA_DEBUG
+    a->md_head = NULL;
+    a->md_tail = NULL;
     a->rng_padd_char = rand() % 256;
     memset(a->head->data, a->rng_padd_char, a->blk_data_size);
 #endif
@@ -222,6 +230,8 @@ void* arena_alloc(Arena* a, size_t s)
 void arena_destroy(Arena* a)
 {
     Block* temp_blk = NULL;
+    if (a == NULL)
+        return;
     while (a->head != NULL) {
         temp_blk = a->head;
         a->head = a->head->next;

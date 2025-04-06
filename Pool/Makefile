@@ -2,7 +2,7 @@
 CC := gcc
 CFLAGS := -std=c99 -DNDDEBUG -Wall -Wextra -Werror -O2 -pedantic -Wpadded
 
-CFLAGS_DEBUG := -std=c99 -DDEBUG -DPOOL_DEBUG -Wall -Wextra -Werror -pedantic -O0 -g
+CFLAGS_DEBUG := -std=c99 -DDEBUG -DPOOL_DEBUG -Wall -Wextra -Werror -pedantic  -O0 -g
 
 TEST_CFLAGS := $(CFLAGS_DEBUG) -fno-plt -fno-pie 
 TEST_LDFLAGS := -no-pie
