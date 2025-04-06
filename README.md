@@ -2,9 +2,9 @@
 This is a small library containing various commoddity memory allocators i'm mainly writing for myself so i don't guarantee about the quality of the software and the stability of the APIs.
 
 ## Actual state
-At the moment the allocators supported are:
--Arena
--Pool
+At the moment the allocators supported are:<br>
+-Arena<br>
+-Pool<br>
 refer to the relative folders for API informations
 
 ## Installation
