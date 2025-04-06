@@ -1,4 +1,4 @@
-### COMPILER AND LINKER
+### SELECT ALLOCATOR 
 ALLOCATOR ?=
 
 ifeq ($(ALLOCATOR),)
@@ -11,6 +11,8 @@ else
   $(error ALLOCATOR must be either "arena" or "pool")
 endif
 
+### VARIABLES & FLAGS
+
 # useful: -Wpadded
 
 WFLAGS := -Wall -Wextra -Werror -pedantic
@@ -18,8 +20,8 @@ STD := -std=c99
 OPT := -O2
 
 CC := gcc
-CFLAGS := $(STD) $(OPT) -DNDDEBUG  $(WFLAGS)
-CFLAGS_DEBUG := $(STD) $(OPT) -g -DDEBUG -DARENA_DEBUG $(WFLAGS)
+CFLAGS := $(STD) $(OPT) $(WFLAGS) -DNDDEBUG 
+CFLAGS_DEBUG := $(STD) $(OPT) $(WFLAGS) -g -DDEBUG -DARENA_DEBUG 
 TEST_CFLAGS := $(CFLAGS_DEBUG) -fno-plt -fno-pie
 TEST_LDFLAGS := -no-pie
 
@@ -61,16 +63,6 @@ $(BUILD_DIR)/%.d.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS_DEBUG) -c $< -o $@
 
 
-.PHONY: valgrind
-valgrind: test
-	valgrind --tool=memcheck --leak-check=full --track-origins=yes -s $(BUILD_DIR)/test_binary
-
-.PHONY: asan
-asan: $(TEST_OBJS)
-	$(CC) $(TEST_CFLAGS) $(TEST_LDFLAGS) -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer $(TEST_OBJS) -o $(BUILD_DIR)/test_binary
-	@echo "Running tests..."
-	$(BUILD_DIR)/test_binary
-
 ### CREATE BUILD DIRECTORY IF NOT EXISTS
 $(BUILD_DIR):
 	@"mkdir" $(BUILD_DIR)
@@ -86,6 +78,18 @@ $(BUILD_DIR)/%.t.o: $(TEST_DIR)/%.c | $(BUILD_DIR)
 
 $(BUILD_DIR)/%.t.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(TEST_CFLAGS) -c $< -o $@
+
+
+### SANITIZERS
+.PHONY: valgrind
+valgrind: test
+	valgrind --tool=memcheck --leak-check=full --track-origins=yes -s $(BUILD_DIR)/test_binary
+
+.PHONY: asan
+asan: $(TEST_OBJS)
+	$(CC) $(TEST_CFLAGS) $(TEST_LDFLAGS) -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer $(TEST_OBJS) -o $(BUILD_DIR)/test_binary
+	@echo "Running tests..."
+	$(BUILD_DIR)/test_binary
 
 ### CLEAN BUILD FILES
 .PHONY: clean
