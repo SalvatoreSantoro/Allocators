@@ -1,12 +1,5 @@
 ### COMPILER AND LINKER
 ALLOCATOR ?=
-CC := gcc
-CFLAGS := -std=c99 -DNDDEBUG -Wall -Wextra -Werror -O2 -pedantic -Wpadded
-
-CFLAGS_DEBUG := -std=c99 -DDEBUG -DARENA_DEBUG -Wall -Wextra -Werror -pedantic -O0 -g
-
-TEST_CFLAGS := $(CFLAGS_DEBUG) -fno-plt -fno-pie 
-TEST_LDFLAGS := -no-pie
 
 ifeq ($(ALLOCATOR),)
   $(error ALLOCATOR must be defined)
@@ -18,12 +11,25 @@ else
   $(error ALLOCATOR must be either "arena" or "pool")
 endif
 
+# useful: -Wpadded
+
+WFLAGS := -Wall -Wextra -Werror -pedantic
+STD := -std=c99
+OPT := -O2
+
+CC := gcc
+CFLAGS := $(STD) $(OPT) -DNDDEBUG  $(WFLAGS)
+CFLAGS_DEBUG := $(STD) $(OPT) -g -DDEBUG -DARENA_DEBUG $(WFLAGS)
+TEST_CFLAGS := $(CFLAGS_DEBUG) -fno-plt -fno-pie
+TEST_LDFLAGS := -no-pie
+
+
 ### DIRECTORIES
 SRC_DIR := $(ALLOCATOR)/src
 BUILD_DIR := $(ALLOCATOR)/build
 TEST_DIR := $(ALLOCATOR)/test
 LIB_NAME := $(ALLOCATOR).a
-LIB_NAME_DEBUG := ./$(ALLOCATOR)_debug.a
+LIB_NAME_DEBUG := $(ALLOCATOR)_debug.a
 
 SRCS := $(wildcard $(SRC_DIR)/*.c)
 OBJS := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
@@ -32,7 +38,6 @@ OBJS_DEBUG := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.d.o, $(SRCS))
 TEST_SRCS := $(wildcard $(TEST_DIR)/*.c)
 TEST_OBJS := $(patsubst $(TEST_DIR)/%.c, $(BUILD_DIR)/%.t.o, $(TEST_SRCS)) \
              $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.t.o, $(SRCS))
-
 
 
 ### BUILD
@@ -56,8 +61,15 @@ $(BUILD_DIR)/%.d.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS_DEBUG) -c $< -o $@
 
 
+.PHONY: valgrind
 valgrind: test
-	valgrind --tool=exp-sgcheck --tool=memcheck --leak-check=full --track-origins=yes -s $(BUILD_DIR)/test_binary
+	valgrind --tool=memcheck --leak-check=full --track-origins=yes -s $(BUILD_DIR)/test_binary
+
+.PHONY: asan
+asan: $(TEST_OBJS)
+	$(CC) $(TEST_CFLAGS) $(TEST_LDFLAGS) -fsanitize=address -fsanitize=undefined -fno-omit-frame-pointer $(TEST_OBJS) -o $(BUILD_DIR)/test_binary
+	@echo "Running tests..."
+	$(BUILD_DIR)/test_binary
 
 ### CREATE BUILD DIRECTORY IF NOT EXISTS
 $(BUILD_DIR):
