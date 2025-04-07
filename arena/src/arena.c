@@ -28,6 +28,7 @@ struct Arena {
     Block* head;
     Block* tail;
     size_t blk_data_size;
+    size_t blk_size;
     mem_alloc_func mem_alloc; // allocation function used from blocks
     mem_dealloc_func mem_dealloc; // deallocation function used from blocks
 };
@@ -162,6 +163,7 @@ Arena* arena_create(size_t s)
         return NULL;
 
     a->head = blk;
+    a->blk_size = blk_size;
     a->blk_data_size = s;
     a->mem_alloc = mem_alloc;
     a->mem_dealloc = mem_dealloc;
@@ -180,7 +182,7 @@ Arena* arena_create(size_t s)
 // allocation blk_size
 void* arena_alloc_align(Arena* a, size_t s, size_t align)
 {
-    uintptr_t curr_addr;
+    unsigned char* curr_addr;
     size_t padding;
     size_t offset;
     Block* blk;
@@ -188,18 +190,18 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
     assert(is_power_of_2(align));
 
     blk = a->tail;
-    curr_addr = (uintptr_t)blk->data + (uintptr_t)blk->filled;
-    padding = calc_align_padding(curr_addr, align);
+    curr_addr = blk->data + blk->filled;
+    padding = calc_align_padding((uintptr_t)curr_addr, align);
 
     assert((s + padding) <= a->blk_data_size);
 
     // create new block, need to recompute padding, curr_addr and block
     if ((blk->filled + s + padding) > a->blk_data_size) {
-        Block* new_blk = a->mem_alloc(sizeof(Block) + a->blk_data_size);
+        Block* new_blk = a->mem_alloc(a->blk_size);
         if (new_blk == NULL)
             return NULL;
         padding = calc_align_padding((uintptr_t)new_blk->data, align);
-        curr_addr = (uintptr_t)new_blk->data;
+        curr_addr = new_blk->data;
         // add the block to list
         blk->next = new_blk;
         a->tail = new_blk;
@@ -214,10 +216,10 @@ void* arena_alloc_align(Arena* a, size_t s, size_t align)
     blk->filled += offset;
 
 #ifdef ARENA_DEBUG
-    metadata_log(a, curr_addr, s, padding);
+    metadata_log(a, (uintptr_t)curr_addr, s, padding);
 #endif
 
-    return (void*)curr_addr;
+    return curr_addr;
 }
 
 void* arena_alloc(Arena* a, size_t s)

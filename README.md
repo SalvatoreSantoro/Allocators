@@ -11,14 +11,14 @@ refer to the relative folders for API informations
 Every allocator has the same project structure, so there is a single Makefile
 used for compilation, the steps to use the code are the following:
 
-include header you can find in the allocator's specific folder (ex. ./arena/arena.h) in your code and:
+include the header you can find in the allocator's specific folder (ex. ./arena/arena.h) in your code and:
 ```sh
-# to compile the allocator (then link your code against [ALLOCATOR]/build/[ALLOCATOR].a)
+# compile the allocator and then link your code against [ALLOCATOR]/build/[ALLOCATOR].a
 # specifing allocator's name with every letter in lowercase
 make ALLOCATOR=*****
 
 # to compile the code using debugging features use the following command
-# and then link your program against .[ALLOCATOR]/build/[ALLOCATOR]_debug.a)
+# and then link your program against [ALLOCATOR]/build/[ALLOCATOR]_debug.a)
 # (refer to specific allocators API to check the functionalities enabled in this way)
 
 make debug ALLOCATOR=*****
@@ -41,7 +41,7 @@ make test ALLOCATOR=*****
 # run tests enabling ASAN
 make asan ALLOCATOR=*****
 
-# run tests enabling ASAN
+# run tests enabling Valgrind
 make valgrind ALLOCATOR=*****
 
 ```

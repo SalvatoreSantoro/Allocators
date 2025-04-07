@@ -35,6 +35,8 @@ struct PoolAlc {
     // to favour allocation on almost full blocks, to avoid keeping unused memory
     // (trying to create few blocks completely used instead of a lot of blocks almost full)
     uint32_t max_filled_head;
+    // internal memory fragmentation
+    float in_frag;
 };
 
 void* pool_alc_alloc(PoolAlc* pa)
@@ -114,9 +116,13 @@ void pool_alc_free(PoolAlc* pa, void* p)
 
     blk->filled -= 1;
 
+    // if the block is in the head or it's neither empty nor full until max_filled_head return
     if ((blk == pa->head) || ((blk->filled != 0) && (blk->filled != pa->max_filled_head)))
         return;
 
+    // otherwise you have to free it if it's empty or move it to the head it's almost full
+
+    // common logic to move the block
     if (blk == pa->tail)
         pa->tail = blk->prev;
     else
@@ -124,6 +130,7 @@ void pool_alc_free(PoolAlc* pa, void* p)
 
     blk->prev->next = blk->next;
 
+    // if almost full put it in the head
     if (blk->filled == pa->max_filled_head) {
         blk->prev = NULL;
         pa->head->prev = blk;
@@ -131,6 +138,7 @@ void pool_alc_free(PoolAlc* pa, void* p)
         pa->head = blk;
     }
 
+    // it empty release it
     if (blk->filled == 0) {
         pa->blks_num -= 1;
         free(blk);
@@ -143,6 +151,7 @@ PoolAlc* pool_alc_create_align(size_t obj_size, size_t obj_num, size_t align)
     size_t obj_padd;
     size_t chunk_padd;
     size_t chunk_size;
+    size_t wasted_bytes;
     PoolAlc* pa;
 
     assert(is_power_of_2(align));
@@ -177,6 +186,10 @@ PoolAlc* pool_alc_create_align(size_t obj_size, size_t obj_num, size_t align)
     pa->chunk_size = chunk_size;
     pa->align = align;
     pa->blk_size = sizeof(Block) + align + (chunk_size * obj_num);
+    // Compute "wasted" space so, the block header + the conservative space added for eventual maximum alignment and
+    // all the paddings and pointers added to make te allocator work correctly
+    wasted_bytes = sizeof(Block) + align + (obj_padd * obj_num) + (sizeof(void*) * obj_num) + (chunk_padd * obj_num);
+    pa->in_frag = ((float) wasted_bytes) / ((float)pa->blk_size);
     return pa;
 }
 
@@ -194,4 +207,8 @@ void pool_alc_destroy(PoolAlc* pa)
         free(temp);
     }
     free(pa);
+}
+
+float pool_alc_frag(PoolAlc* pa){
+    return pa->in_frag;
 }

@@ -46,18 +46,3 @@ void* arena_alloc(Arena* a, size_t s);
 void* arena_alloc_align(Arena* a, size_t s, size_t align);
 
 ```
-
-## Installation
-include "arena.h" header in your code and
-```sh
-# to compile the code (then link your code against ./build/arena.a)
-make 
-
-# to compile the code using debugging features (define "ARENA_DEBUG" macro
-# when compiling your code and link against ./build/arena_debug.a)
-make debug
-
-# to run the tests
-make test
-```
-

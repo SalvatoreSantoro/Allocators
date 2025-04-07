@@ -16,12 +16,11 @@ static inline size_t calc_align_padding(uintptr_t p, size_t align)
 {
     uintptr_t modulo;
     size_t ret;
-    uintptr_t a = (uintptr_t)align;
-    modulo = p & (a - 1);
+    modulo = p & (align - 1);
 #ifdef ARENA_DEBUG
-    ret = (size_t)(a - modulo);
+    ret = (size_t)(align - modulo);
 #else
-    ret = modulo != 0 ? (size_t)(a - modulo) : modulo;
+    ret = modulo != 0 ? (size_t)(align - modulo) : modulo;
 #endif
     return ret;
 }

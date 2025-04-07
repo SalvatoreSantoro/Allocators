@@ -1,5 +1,6 @@
 ### SELECT ALLOCATOR 
 ALLOCATOR ?=
+DEBUG_FLAGS ?=
 
 ifeq ($(ALLOCATOR),)
   $(error ALLOCATOR must be defined)
@@ -11,19 +12,21 @@ else
   $(error ALLOCATOR must be either "arena" or "pool")
 endif
 
+ifeq ($(ALLOCATOR), arena)
+  DEBUG_FLAGS+=-DARENA_DEBUG
+endif
+
 ### VARIABLES & FLAGS
 
 # useful: -Wpadded
 
-WFLAGS := -Wall -Wextra -Werror -pedantic
-STD := -std=c99
-OPT := -O2
 
-CC := gcc
-CFLAGS := $(STD) $(OPT) $(WFLAGS) -DNDDEBUG 
-CFLAGS_DEBUG := $(STD) $(OPT) $(WFLAGS) -g -DDEBUG -DARENA_DEBUG 
-TEST_CFLAGS := $(CFLAGS_DEBUG) -fno-plt -fno-pie
-TEST_LDFLAGS := -no-pie
+CC:=gcc
+DEFAULT_FLAGS:=-std=c99 -O2 -Wall -Wextra -Werror -pedantic
+CFLAGS:=$(DEFAULT_FLAGS) -DNDDEBUG
+CFLAGS_DEBUG:=$(DEFAULT_FLAGS) $(DEBUG_FLAGS) -g -DDEBUG
+TEST_CFLAGS:=$(CFLAGS_DEBUG) -fno-plt -fno-pie
+TEST_LDFLAGS:=-no-pie
 
 
 ### DIRECTORIES

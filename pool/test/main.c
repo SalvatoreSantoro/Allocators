@@ -8,6 +8,7 @@
 #include <time.h>
 
 #define NUM_ALLOCS 10000
+#define POOL_SIZE 256
 
 // testing different allocation sizes
 
@@ -92,14 +93,54 @@ RngState* rng_state_init(void)
 
 int main()
 {
-    int pool_sizes[10] = { 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000 };
     int random_idx;
     RngState* rng = rng_state_init();
 
-    srand(time(0));
     Mock1* mocks1[NUM_ALLOCS];
     Mock1 mocks1_check[NUM_ALLOCS];
-    PoolAlc* pa1 = pool_alc_create_align(sizeof(Mock1), pool_sizes[0], __alignof__(Mock1));
+    PoolAlc* pa1 = pool_alc_create_align(sizeof(Mock1), POOL_SIZE, __alignof__(Mock1));
+
+    Mock2* mocks2[NUM_ALLOCS];
+    Mock2 mocks2_check[NUM_ALLOCS];
+    PoolAlc* pa2 = pool_alc_create_align(sizeof(Mock2), POOL_SIZE, __alignof__(Mock2));
+
+    Mock4* mocks4[NUM_ALLOCS];
+    Mock4 mocks4_check[NUM_ALLOCS];
+    PoolAlc* pa4 = pool_alc_create_align(sizeof(Mock4), POOL_SIZE, __alignof__(Mock4));
+
+    Mock8* mocks8[NUM_ALLOCS];
+    Mock8 mocks8_check[NUM_ALLOCS];
+    PoolAlc* pa8 = pool_alc_create_align(sizeof(Mock8), POOL_SIZE, __alignof__(Mock8));
+
+    Mock16* mocks16[NUM_ALLOCS];
+    Mock16 mocks16_check[NUM_ALLOCS];
+    PoolAlc* pa16 = pool_alc_create_align(sizeof(Mock16), POOL_SIZE, __alignof__(Mock16));
+
+    Mock32* mocks32[NUM_ALLOCS];
+    Mock32 mocks32_check[NUM_ALLOCS];
+    PoolAlc* pa32 = pool_alc_create_align(sizeof(Mock32), POOL_SIZE, __alignof__(Mock32));
+
+    Mock64* mocks64[NUM_ALLOCS];
+    Mock64 mocks64_check[NUM_ALLOCS];
+    PoolAlc* pa64 = pool_alc_create_align(sizeof(Mock64), POOL_SIZE, __alignof__(Mock64));
+
+
+    fprintf(stderr, "\n");
+    fprintf(stderr, "All pools are allocated specifying this number of objects: %d\n", POOL_SIZE);
+    fprintf(stderr, "Internal fragmentation for objects of size 1: %f\n", pool_alc_frag(pa1)); 
+    fprintf(stderr, "Internal fragmentation for objects of size 2: %f\n", pool_alc_frag(pa2)); 
+    fprintf(stderr, "Internal fragmentation for objects of size 4: %f\n", pool_alc_frag(pa4)); 
+    fprintf(stderr, "Internal fragmentation for objects of size 8: %f\n", pool_alc_frag(pa8)); 
+    fprintf(stderr, "Internal fragmentation for objects of size 16: %f\n", pool_alc_frag(pa16)); 
+    fprintf(stderr, "Internal fragmentation for objects of size 32: %f\n", pool_alc_frag(pa32)); 
+    fprintf(stderr, "Internal fragmentation for objects of size 64: %f\n", pool_alc_frag(pa64)); 
+    fprintf(stderr, "\n");
+
+    srand(time(0));
+
+    fprintf(stderr, "Testing the pool, allocating and then deallocating a lot of objects in random order\n");
+
+    fprintf(stderr, "Allocating and checking correctness of content wrote for objects of size 1\n");
 
     for (int i = 0; i < NUM_ALLOCS; i++) {
         random_idx = rng_no_rep(rng, NUM_ALLOCS);
@@ -123,9 +164,7 @@ int main()
 
     rng_reset(rng);
 
-    Mock2* mocks2[NUM_ALLOCS];
-    Mock2 mocks2_check[NUM_ALLOCS];
-    PoolAlc* pa2 = pool_alc_create_align(sizeof(Mock2), pool_sizes[0], __alignof__(Mock2));
+    fprintf(stderr, "Allocating and checking correctness of content wrote for objects of size 2\n");
 
     for (int i = 0; i < NUM_ALLOCS; i++) {
         random_idx = rng_no_rep(rng, NUM_ALLOCS);
@@ -148,9 +187,7 @@ int main()
     pool_alc_destroy(pa2);
     rng_reset(rng);
 
-    Mock4* mocks4[NUM_ALLOCS];
-    Mock4 mocks4_check[NUM_ALLOCS];
-    PoolAlc* pa4 = pool_alc_create_align(sizeof(Mock4), pool_sizes[0], __alignof__(Mock4));
+    fprintf(stderr, "Allocating and checking correctness of content wrote for objects of size 4\n");
 
     for (int i = 0; i < NUM_ALLOCS; i++) {
         random_idx = rng_no_rep(rng, NUM_ALLOCS);
@@ -173,9 +210,7 @@ int main()
     pool_alc_destroy(pa4);
     rng_reset(rng);
 
-    Mock8* mocks8[NUM_ALLOCS];
-    Mock8 mocks8_check[NUM_ALLOCS];
-    PoolAlc* pa8 = pool_alc_create_align(sizeof(Mock8), pool_sizes[0], __alignof__(Mock8));
+    fprintf(stderr, "Allocating and checking correctness of content wrote for objects of size 8\n");
 
     for (int i = 0; i < NUM_ALLOCS; i++) {
         random_idx = rng_no_rep(rng, NUM_ALLOCS);
@@ -198,9 +233,7 @@ int main()
     pool_alc_destroy(pa8);
     rng_reset(rng);
 
-    Mock16* mocks16[NUM_ALLOCS];
-    Mock16 mocks16_check[NUM_ALLOCS];
-    PoolAlc* pa16 = pool_alc_create_align(sizeof(Mock16), pool_sizes[0], __alignof__(Mock16));
+    fprintf(stderr, "Allocating and checking correctness of content wrote for objects of size 16\n");
 
     for (int i = 0; i < NUM_ALLOCS; i++) {
         random_idx = rng_no_rep(rng, NUM_ALLOCS);
@@ -225,9 +258,7 @@ int main()
     pool_alc_destroy(pa16);
     rng_reset(rng);
 
-    Mock32* mocks32[NUM_ALLOCS];
-    Mock32 mocks32_check[NUM_ALLOCS];
-    PoolAlc* pa32 = pool_alc_create_align(sizeof(Mock32), pool_sizes[0], __alignof__(Mock32));
+    fprintf(stderr, "Allocating and checking correctness of content wrote for objects of size 32\n");
 
     for (int i = 0; i < NUM_ALLOCS; i++) {
         random_idx = rng_no_rep(rng, NUM_ALLOCS);
@@ -259,9 +290,7 @@ int main()
     pool_alc_destroy(pa32);
     rng_reset(rng);
 
-    Mock64* mocks64[NUM_ALLOCS];
-    Mock64 mocks64_check[NUM_ALLOCS];
-    PoolAlc* pa64 = pool_alc_create_align(sizeof(Mock64), pool_sizes[0], __alignof__(Mock64));
+    fprintf(stderr, "Allocating and checking correctness of content wrote for objects of size 64\n");
 
     for (int i = 0; i < NUM_ALLOCS; i++) {
         random_idx = rng_no_rep(rng, NUM_ALLOCS);
